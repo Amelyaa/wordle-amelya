@@ -17,7 +17,7 @@ const App = () => {
     const [colIndex, setColIndex] = useState(0);
     const [showConfetti, setShowConfetti] = useState(false);
     const [letterState, setLetterState] = useState<LetterState>({});
-    const [gameOver, setGameOver] = useState({ over: false, message: "" });
+    const [gameOver, setGameOver] = useState({over: false, message: ""});
 
     useEffect(() => {
         const randomIndex = Math.floor(Math.random() * MOTS.length);
@@ -63,14 +63,14 @@ const App = () => {
             if (colIndex === 4) {
                 // Si la dernière ligne est remplie et que le mot n'est pas trouvé
                 if (rowIndex === gridLetters.length - 1 && !newGridColors[rowIndex].every((color: string) => color === "bg-green-500")) {
-                    setGameOver({ over: true, message: `Perdu, le mot était : ${randomWord}` });
+                    setGameOver({over: true, message: `Perdu, le mot était : ${randomWord}`});
                 }
 
                 setCurrentAttempt(Array(5).fill(""));
                 setRowIndex(rowIndex < 5 ? rowIndex + 1 : rowIndex);
                 setColIndex(0);
 
-                if(checkWin(newGridColors[rowIndex])) {
+                if (checkWin(newGridColors[rowIndex])) {
                     setShowConfetti(true);
                     alert('Félicitations ! Vous avez gagné !');
                 }
@@ -78,7 +78,7 @@ const App = () => {
                 setColIndex(colIndex + 1);
             }
 
-            const newLetterState = { ...letterState };
+            const newLetterState = {...letterState};
             if (randomWord.includes(letter)) {
                 if (randomWord[colIndex] === letter) {
                     newLetterState[letter] = 'bg-green-500'; // Correct et bien placé
@@ -94,9 +94,133 @@ const App = () => {
         }
     };
 
+    useEffect(() => {
+        const handleKeyPress = (event: KeyboardEvent) => {
+            const {key} = event;
+
+            if (key === "Enter") {
+                handleSubmit();
+            } else if (key === "Backspace") {
+                handleDelete();
+            } else {
+                const isLetter = /^[a-zA-Z]$/.test(key);
+                if (isLetter && colIndex < 5) {
+                    handleKeyPressInput(key.toUpperCase());
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyPress);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyPress);
+        };
+    }, [colIndex, currentAttempt]);
+
+
+    const handleSubmit = () => {
+        if (currentAttempt.every(letter => letter !== "") && colIndex === 5) {
+            // Assurer que la ligne est complètement remplie
+            const newGridColors = updateColorsForWord(currentAttempt, randomWord);
+            setGridColors(gridColors.map((row, idx) => idx === rowIndex ? newGridColors : row));
+
+            // Mettre à jour l'état des lettres après la soumission
+            const newLetterState = {...letterState};
+            currentAttempt.forEach((letter, index) => {
+                if (randomWord.toUpperCase().includes(letter)) {
+                    if (randomWord[index] === letter) {
+                        newLetterState[letter] = 'bg-green-500'; // Correct et bien placé
+                    } else if (!newLetterState[letter] || newLetterState[letter] !== 'bg-green-500') {
+                        newLetterState[letter] = 'bg-yellow-500'; // Correct mais mal placé
+                    }
+                } else {
+                    newLetterState[letter] = 'bg-gray-300'; // Incorrect
+                }
+            });
+            setLetterState(newLetterState);
+
+            // Réinitialiser pour la prochaine ligne ou fin de jeu
+            if (checkWin(newGridColors)) {
+                setShowConfetti(true);
+                setGameOver({over: true, message: `Félicitations ! Vous avez trouvé le mot : ${randomWord}`});
+            } else if (rowIndex === gridLetters.length - 1) {
+                setGameOver({over: true, message: `Perdu, le mot était : ${randomWord}`});
+            }
+
+            setCurrentAttempt(Array(5).fill(""));
+            setRowIndex(rowIndex < gridLetters.length - 1 ? rowIndex + 1 : rowIndex);
+            setColIndex(0);
+        }
+    };
+
+
+
+    const handleDelete = () => {
+        if (colIndex > 0) {
+            const newAttempt = [...currentAttempt];
+            newAttempt[colIndex - 1] = "";
+            setCurrentAttempt(newAttempt);
+
+            const newGridLetters = [...gridLetters];
+            newGridLetters[rowIndex] = newGridLetters[rowIndex].map((cell: string, index: number) => {
+                return index === colIndex - 1 ? "" : cell;
+            });
+
+            setGridLetters(newGridLetters);
+            setColIndex(colIndex - 1);
+        }
+    };
+
+    const handleKeyPressInput = (letter: string) => {
+        if (colIndex < 5) {
+            const newAttempt = [...currentAttempt];
+            newAttempt[colIndex] = letter;
+            setCurrentAttempt(newAttempt);
+
+            // Mise à jour de la grille avec la nouvelle lettre uniquement dans la colonne actuelle
+            const newGridLetters = gridLetters.map((row, idx) => {
+                if (idx === rowIndex) {
+                    const newRow = [...row];
+                    newRow[colIndex] = letter;
+                    return newRow;
+                }
+                return row;
+            });
+
+            setGridLetters(newGridLetters);
+
+            // Préparer pour la prochaine lettre
+            setColIndex(colIndex + 1);
+        }
+    };
+
+
+    const updateColorsForWord = (attempt: string[], word: string) => {
+        const result = Array(5).fill("bg-gray-300"); // Initialiser toutes les lettres comme incorrectes
+        const wordLetters = word.split('');
+        const attemptLetters = [...attempt];
+
+        // D'abord, marquer toutes les lettres correctement placées
+        attemptLetters.forEach((letter, idx) => {
+            if (letter === wordLetters[idx]) {
+                result[idx] = "bg-green-500";
+            }
+        });
+
+        // Ensuite, marquer les lettres mal placées
+        attemptLetters.forEach((letter, idx) => {
+            if (result[idx] !== "bg-green-500" && wordLetters.includes(letter)) {
+                result[idx] = "bg-yellow-500";
+            }
+        });
+
+        return result;
+    };
+
+
     return (
         <>
-            {showConfetti && <Confetti />}
+            {showConfetti && <Confetti/>}
             <div className="text-center">
                 <h1 className="text-2xl font-bold mb-4">Wordle</h1>
                 <div className="mt-4">
@@ -107,7 +231,7 @@ const App = () => {
                         <div className="flex gap-1" key={rIndex}>
                             {row.map((cell: string, cIndex: number) => (
                                 <div className={clsx(
-                                    "border rounded-md size-[50px] flex justify-center items-center",
+                                    "border rounded-md size-[50px] flex justify-center items-center transition-colors duration-300 ease-in-out",
                                     gridColors[rIndex][cIndex],
                                 )} key={cIndex}>
                                     {cell}
@@ -115,11 +239,10 @@ const App = () => {
                             ))}
                         </div>
                     ))}
-
                 </div>
 
                 {gameOver.over && (
-                    <div className="my-2 text-red-400">
+                    <div className={clsx("my-2", showConfetti ? "text-green-600" : "text-red-400")}>
                         {gameOver.message}
                     </div>
                 )}
@@ -135,7 +258,7 @@ const App = () => {
                                 .slice(rIndex * 7, rIndex * 7 + 7 + (rIndex === 3 ? 6 : 0))
                                 .map((letter) => (
                                     <button key={letter} onClick={() => handleLetterClick(letter)} className={clsx(
-                                        "border rounded-md size-[30px] flex items-center justify-center cursor-pointer mx-1 button-transition",
+                                        "border rounded-md size-[30px] flex items-center justify-center cursor-pointer mx-1 transition-colors duration-300 ease-in-out",
                                         letterState[letter] || "hover:bg-gray-500/30"
                                     )}>
                                         {letter}
