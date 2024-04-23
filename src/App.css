@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+.button-transition {
+    transition: background-color 0.3s ease;
+}
+
 body {
     @apply bg-gray-800 text-white p-2;
 }

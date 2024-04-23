@@ -4,6 +4,10 @@ import "./App.css";
 import clsx from "clsx";
 import Confetti from 'react-confetti';
 
+type LetterState = {
+    [key: string]: string;
+}
+
 const App = () => {
     const [randomWord, setRandomWord] = useState("");
     const [gridLetters, setGridLetters] = useState(Array(6).fill(Array(5).fill("")));
@@ -12,6 +16,8 @@ const App = () => {
     const [rowIndex, setRowIndex] = useState(0);
     const [colIndex, setColIndex] = useState(0);
     const [showConfetti, setShowConfetti] = useState(false);
+    const [letterState, setLetterState] = useState<LetterState>({});
+    const [gameOver, setGameOver] = useState({ over: false, message: "" });
 
     useEffect(() => {
         const randomIndex = Math.floor(Math.random() * MOTS.length);
@@ -45,29 +51,46 @@ const App = () => {
                 const isLetterMisplaced = randomWord.split('').some((wordLetter, wordIndex) => {
                     return wordLetter === letter && newAttempt[wordIndex] !== letter && newGridColors[wordIndex] !== "bg-green-500/60";
                 });
-                newGridColors[rowIndex][colIndex] = isLetterMisplaced ? "bg-yellow-500" : "bg-red-300"; // Lettre correcte mais mal placée ou incorrecte
+                newGridColors[rowIndex][colIndex] = isLetterMisplaced ? "bg-yellow-500" : "bg-gray-300"; // Lettre correcte mais mal placée ou incorrecte
             } else {
-                newGridColors[rowIndex][colIndex] = "bg-red-300"; // Lettre incorrecte
+                newGridColors[rowIndex][colIndex] = "bg-gray-300"; // Lettre incorrecte
             }
 
             setGridLetters(newGridLetters);
             setGridColors(newGridColors);
             setCurrentAttempt(newAttempt);
 
-            // Passer à la prochaine cellule ou à la ligne suivante si c'est la dernière cellule
             if (colIndex === 4) {
+                // Si la dernière ligne est remplie et que le mot n'est pas trouvé
+                if (rowIndex === gridLetters.length - 1 && !newGridColors[rowIndex].every((color: string) => color === "bg-green-500")) {
+                    setGameOver({ over: true, message: `Perdu, le mot était : ${randomWord}` });
+                }
+
                 setCurrentAttempt(Array(5).fill(""));
                 setRowIndex(rowIndex < 5 ? rowIndex + 1 : rowIndex);
                 setColIndex(0);
 
                 if(checkWin(newGridColors[rowIndex])) {
-                    // L'utilisateur a gagné
                     setShowConfetti(true);
-                    alert('Félicitations ! Vous avez gagné !'); // Pour l'instant, nous utilisons une alerte simple
+                    alert('Félicitations ! Vous avez gagné !');
                 }
             } else {
                 setColIndex(colIndex + 1);
             }
+
+            const newLetterState = { ...letterState };
+            if (randomWord.includes(letter)) {
+                if (randomWord[colIndex] === letter) {
+                    newLetterState[letter] = 'bg-green-500'; // Correct et bien placé
+                } else if (!newLetterState[letter] || newLetterState[letter] !== 'bg-green-500') {
+                    newLetterState[letter] = 'bg-yellow-500'; // Correct mais mal placé
+                }
+            } else {
+                newLetterState[letter] = 'bg-gray-300'; // Incorrect
+            }
+
+            setLetterState(newLetterState);
+
         }
     };
 
@@ -85,7 +108,6 @@ const App = () => {
                             {row.map((cell: string, cIndex: number) => (
                                 <div className={clsx(
                                     "border rounded-md size-[50px] flex justify-center items-center",
-                                    // Ici, nous utilisons l'index de la rangée et de la colonne pour récupérer la couleur correspondante
                                     gridColors[rIndex][cIndex],
                                 )} key={cIndex}>
                                     {cell}
@@ -95,13 +117,27 @@ const App = () => {
                     ))}
 
                 </div>
+
+                {gameOver.over && (
+                    <div className="my-2 text-red-400">
+                        {gameOver.message}
+                    </div>
+                )}
+
+                <button onClick={() => window.location.reload()} className="mt-4 bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-500/80">
+                    Recommencer le jeu
+                </button>
+
                 <div className="flex flex-col items-center justify-center mt-4">
                     {[...Array(4)].map((_, rIndex) => (
                         <div className="flex justify-center gap-1 my-1" key={rIndex}>
                             {Array.from({length: 26}, (_, i) => String.fromCharCode(65 + i))
                                 .slice(rIndex * 7, rIndex * 7 + 7 + (rIndex === 3 ? 6 : 0))
                                 .map((letter) => (
-                                    <button key={letter} onClick={() => handleLetterClick(letter)} className="border border-gray-500 rounded-md size-[30px] flex items-center justify-center cursor-pointer mx-1 hover:bg-gray-500/30">
+                                    <button key={letter} onClick={() => handleLetterClick(letter)} className={clsx(
+                                        "border rounded-md size-[30px] flex items-center justify-center cursor-pointer mx-1 button-transition",
+                                        letterState[letter] || "hover:bg-gray-500/30"
+                                    )}>
                                         {letter}
                                     </button>
                                 ))}
