@@ -3,6 +3,7 @@ import {MOTS} from "./words.ts";
 import "./App.css";
 import clsx from "clsx";
 import Confetti from 'react-confetti';
+import {CornerDownLeft, Delete} from "lucide-react";
 
 type LetterState = {
     [key: string]: string;
@@ -30,68 +31,46 @@ const App = () => {
         return colors.every(color => color === 'bg-green-500');
     };
 
-    const handleLetterClick = (letter: string) => {
-        if (colIndex < 5) {
-            const newAttempt = [...currentAttempt];
-            newAttempt[colIndex] = letter;
+    const handleVictory = () => {
+        setShowConfetti(true);
+        setGameOver({over: true, message: `Félicitations ! Vous avez trouvé le mot : ${randomWord}`});
+    };
 
-            // Mise à jour de la grille avec la nouvelle lettre
-            const newGridLetters = [...gridLetters];
-            newGridLetters[rowIndex] = newGridLetters[rowIndex].map((cell: string, index: number) => index === colIndex ? letter : cell);
+    const handleGameOver = () => {
+        setGameOver({over: true, message: `Perdu, le mot était : ${randomWord}`});
+    };
 
-            // Mise à jour des couleurs pour la lettre entrée
-            const newGridColors = [...gridColors];
-            newGridColors[rowIndex] = newGridColors[rowIndex].slice();
-
-            // Déterminez si la lettre est correcte
-            if (letter === randomWord[colIndex]) {
-                newGridColors[rowIndex][colIndex] = "bg-green-500"; // Lettre correcte et bien placée
-            } else if (randomWord.includes(letter)) {
-                // Si la lettre est présente ailleurs dans le mot
-                const isLetterMisplaced = randomWord.split('').some((wordLetter, wordIndex) => {
-                    return wordLetter === letter && newAttempt[wordIndex] !== letter && newGridColors[wordIndex] !== "bg-green-500/60";
-                });
-                newGridColors[rowIndex][colIndex] = isLetterMisplaced ? "bg-yellow-500" : "bg-gray-300"; // Lettre correcte mais mal placée ou incorrecte
-            } else {
-                newGridColors[rowIndex][colIndex] = "bg-gray-300"; // Lettre incorrecte
-            }
-
-            setGridLetters(newGridLetters);
-            setGridColors(newGridColors);
-            setCurrentAttempt(newAttempt);
-
-            if (colIndex === 4) {
-                // Si la dernière ligne est remplie et que le mot n'est pas trouvé
-                if (rowIndex === gridLetters.length - 1 && !newGridColors[rowIndex].every((color: string) => color === "bg-green-500")) {
-                    setGameOver({over: true, message: `Perdu, le mot était : ${randomWord}`});
+    const updateLetterState = (attempt: string[]) => {
+        const newLetterState = {...letterState};
+        attempt.forEach((letter, index) => {
+            if (!newLetterState[letter]) {
+                if (randomWord[index] === letter) {
+                    newLetterState[letter] = 'bg-green-500';
+                } else if (randomWord.includes(letter)) {
+                    newLetterState[letter] = 'bg-yellow-500';
+                } else {
+                    newLetterState[letter] = 'bg-gray-300';
                 }
-
-                setCurrentAttempt(Array(5).fill(""));
-                setRowIndex(rowIndex < 5 ? rowIndex + 1 : rowIndex);
-                setColIndex(0);
-
-                if (checkWin(newGridColors[rowIndex])) {
-                    setShowConfetti(true);
-                    alert('Félicitations ! Vous avez gagné !');
-                }
-            } else {
-                setColIndex(colIndex + 1);
             }
+        });
+        setLetterState(newLetterState);
+    };
 
-            const newLetterState = {...letterState};
-            if (randomWord.includes(letter)) {
-                if (randomWord[colIndex] === letter) {
-                    newLetterState[letter] = 'bg-green-500'; // Correct et bien placé
-                } else if (!newLetterState[letter] || newLetterState[letter] !== 'bg-green-500') {
-                    newLetterState[letter] = 'bg-yellow-500'; // Correct mais mal placé
-                }
-            } else {
-                newLetterState[letter] = 'bg-gray-300'; // Incorrect
-            }
+    const updateColorsAndCheckGameStatus = () => {
+        const newGridColors = updateColorsForWord(currentAttempt, randomWord);
+        setGridColors(gridColors.map((row, idx) => idx === rowIndex ? newGridColors : row));
 
-            setLetterState(newLetterState);
-
+        if (checkWin(newGridColors)) {
+            handleVictory();
+        } else if (rowIndex === gridLetters.length - 1) {
+            handleGameOver();
         }
+
+        updateLetterState(currentAttempt);
+
+        setCurrentAttempt(Array(5).fill(""));
+        setRowIndex(rowIndex < gridLetters.length - 1 ? rowIndex + 1 : rowIndex);
+        setColIndex(0);
     };
 
     useEffect(() => {
@@ -117,61 +96,14 @@ const App = () => {
         };
     }, [colIndex, currentAttempt]);
 
-
     const handleSubmit = () => {
         if (currentAttempt.every(letter => letter !== "") && colIndex === 5) {
-            // Assurer que la ligne est complètement remplie
-            const newGridColors = updateColorsForWord(currentAttempt, randomWord);
-            setGridColors(gridColors.map((row, idx) => idx === rowIndex ? newGridColors : row));
-
-            // Mettre à jour l'état des lettres après la soumission
-            const newLetterState = {...letterState};
-            currentAttempt.forEach((letter, index) => {
-                if (randomWord.toUpperCase().includes(letter)) {
-                    if (randomWord[index] === letter) {
-                        newLetterState[letter] = 'bg-green-500'; // Correct et bien placé
-                    } else if (!newLetterState[letter] || newLetterState[letter] !== 'bg-green-500') {
-                        newLetterState[letter] = 'bg-yellow-500'; // Correct mais mal placé
-                    }
-                } else {
-                    newLetterState[letter] = 'bg-gray-300'; // Incorrect
-                }
-            });
-            setLetterState(newLetterState);
-
-            // Réinitialiser pour la prochaine ligne ou fin de jeu
-            if (checkWin(newGridColors)) {
-                setShowConfetti(true);
-                setGameOver({over: true, message: `Félicitations ! Vous avez trouvé le mot : ${randomWord}`});
-            } else if (rowIndex === gridLetters.length - 1) {
-                setGameOver({over: true, message: `Perdu, le mot était : ${randomWord}`});
-            }
-
-            setCurrentAttempt(Array(5).fill(""));
-            setRowIndex(rowIndex < gridLetters.length - 1 ? rowIndex + 1 : rowIndex);
-            setColIndex(0);
+            updateColorsAndCheckGameStatus();
         }
     };
 
 
-
-    const handleDelete = () => {
-        if (colIndex > 0) {
-            const newAttempt = [...currentAttempt];
-            newAttempt[colIndex - 1] = "";
-            setCurrentAttempt(newAttempt);
-
-            const newGridLetters = [...gridLetters];
-            newGridLetters[rowIndex] = newGridLetters[rowIndex].map((cell: string, index: number) => {
-                return index === colIndex - 1 ? "" : cell;
-            });
-
-            setGridLetters(newGridLetters);
-            setColIndex(colIndex - 1);
-        }
-    };
-
-    const handleKeyPressInput = (letter: string) => {
+    const handleInput = (letter: string) => {
         if (colIndex < 5) {
             const newAttempt = [...currentAttempt];
             newAttempt[colIndex] = letter;
@@ -192,6 +124,26 @@ const App = () => {
             // Préparer pour la prochaine lettre
             setColIndex(colIndex + 1);
         }
+    };
+
+    const handleDelete = () => {
+        if (colIndex > 0) {
+            const newAttempt = [...currentAttempt];
+            newAttempt[colIndex - 1] = "";
+            setCurrentAttempt(newAttempt);
+
+            const newGridLetters = [...gridLetters];
+            newGridLetters[rowIndex] = newGridLetters[rowIndex].map((cell: string, index: number) => {
+                return index === colIndex - 1 ? "" : cell;
+            });
+
+            setGridLetters(newGridLetters);
+            setColIndex(colIndex - 1);
+        }
+    };
+
+    const handleKeyPressInput = (letter: string) => {
+        handleInput(letter)
     };
 
 
@@ -215,6 +167,51 @@ const App = () => {
         });
 
         return result;
+    };
+
+    type VirtualKeyboardProps = {
+        onKeyPress: (letter: string) => void;
+        onDelete: () => void;
+        onEnter: () => void;
+        letterState: LetterState;
+    }
+    const VirtualKeyboard = ({onKeyPress, onDelete, onEnter, letterState}: VirtualKeyboardProps) => {
+        // Définition des touches pour chaque rangée
+        const keys = [
+            ["A", "B", "C", "D", "E", "F", "G"],
+            ["H", "I", "J", "K", "L", "M", "N"],
+            ["O", "P", "Q", "R", "S", "T", "U"],
+            ["V", "W", "X", "Y", "Z"]
+        ];
+
+        // Fonction pour rendre une touche du clavier
+        const renderKey = (key: string, extraClass = "") => (
+            <button key={key} onClick={() => onKeyPress(key)} className={`border rounded-md size-[30px] flex items-center justify-center cursor-pointer mx-1 transition-colors duration-300 ease-in-out ${extraClass} ${letterState[key] || "hover:bg-gray-500/30"}`}>
+                {key}
+            </button>
+        );
+
+        return (
+            <div className="flex flex-col items-center justify-center mt-4">
+                {keys.map((row, rIndex) => (
+                    <div className="flex justify-center gap-1 my-1" key={rIndex}>
+                        {rIndex === 3 && (
+                            // Touche "Backspace" pour la dernière rangée
+                            <button onClick={onDelete} className="border rounded-md size-[30px] flex items-center justify-center cursor-pointer mx-1 transition-colors duration-300 ease-in-out hover:bg-gray-500/30">
+                                <Delete size={16}/>
+                            </button>
+                        )}
+                        {row.map((letter) => renderKey(letter))}
+                        {rIndex === 3 && (
+                            // Touche "Enter" pour la dernière rangée
+                            <button onClick={onEnter} className="border rounded-md size-[30px] flex items-center justify-center cursor-pointer mx-1 transition-colors duration-300 ease-in-out hover:bg-gray-500/30">
+                                <CornerDownLeft size={16}/>
+                            </button>
+                        )}
+                    </div>
+                ))}
+            </div>
+        );
     };
 
 
@@ -251,22 +248,7 @@ const App = () => {
                     Recommencer le jeu
                 </button>
 
-                <div className="flex flex-col items-center justify-center mt-4">
-                    {[...Array(4)].map((_, rIndex) => (
-                        <div className="flex justify-center gap-1 my-1" key={rIndex}>
-                            {Array.from({length: 26}, (_, i) => String.fromCharCode(65 + i))
-                                .slice(rIndex * 7, rIndex * 7 + 7 + (rIndex === 3 ? 6 : 0))
-                                .map((letter) => (
-                                    <button key={letter} onClick={() => handleLetterClick(letter)} className={clsx(
-                                        "border rounded-md size-[30px] flex items-center justify-center cursor-pointer mx-1 transition-colors duration-300 ease-in-out",
-                                        letterState[letter] || "hover:bg-gray-500/30"
-                                    )}>
-                                        {letter}
-                                    </button>
-                                ))}
-                        </div>
-                    ))}
-                </div>
+                <VirtualKeyboard onKeyPress={handleInput} onDelete={handleDelete} onEnter={handleSubmit} letterState={letterState}/>
 
             </div>
         </>
